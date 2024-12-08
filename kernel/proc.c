@@ -241,7 +241,7 @@ userinit(void)
   // and data into it.
   uvmfirst(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
-
+  p->trace_mask = 0;
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
   p->trapframe->sp = PGSIZE;  // user stack pointer
@@ -301,6 +301,8 @@ fork(void)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
+  // copy trace mask
+  np->trace_mask=p->trace_mask;
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
