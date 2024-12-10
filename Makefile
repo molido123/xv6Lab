@@ -2,8 +2,10 @@
 # To compile and run with a lab solution, set the lab name in conf/lab.mk
 # (e.g., LAB=util).  Run make grade to test solution with the lab's
 # grade script (e.g., grade-lab-util).
-
+# 设置项目根目录
+PROJECT_DIR := $(shell pwd)
 -include conf/lab.mk
+CPPFLAGS += -I$(PROJECT_DIR)/kernel
 
 K=kernel
 U=user
@@ -30,7 +32,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o\
+  $K/sysinfo.o\
 
 OBJS_KCSAN = \
   $K/start.o \
@@ -189,7 +192,7 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_trace\
-
+	$U/_sysinfotest\
 
 
 
