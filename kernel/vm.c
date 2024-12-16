@@ -87,7 +87,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
     panic("walk");
-
+  int isNewPage = 0;
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
@@ -97,7 +97,11 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
         return 0;
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
+      if(level==1) isNewPage = 1;
     }
+  }
+  if(isNewPage==0&&alloc!=2) {
+      pagetable[PX(0, va)]|= PTE_A;
   }
   return &pagetable[PX(0, va)];
 }
