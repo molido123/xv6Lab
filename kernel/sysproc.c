@@ -19,6 +19,8 @@ uint64
 sys_getpid(void)
 {
   return myproc()->pid;
+//    struct usyscall *u = (struct usyscall *)USYSCALL;
+//    return u->pid;
 }
 
 uint64

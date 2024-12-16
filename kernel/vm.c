@@ -338,7 +338,7 @@ void
 uvmclear(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
-  
+
   pte = walk(pagetable, va, 0);
   if(pte == 0)
     panic("uvmclear");
@@ -436,4 +436,34 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+void vmprint(pagetable_t pagetable) {
+    printf("page table %p\n", pagetable);
+    for(int i = 0; i <= 255; i++){
+        pte_t pte1 = pagetable[i];
+        if((pte1 & PTE_V) == 0)
+            continue;
+        // this PTE points to a lower-level page table.
+        uint64 child1 = PTE2PA(pte1);
+        printf(" ..%d: pte %p pa %p\n", i,pte1, child1);
+        pagetable_t pt2 = (pagetable_t)child1;
+        for(int j =0;j<=511;j++){
+            pte_t pte2 = pt2[j];
+            if((pte2 & PTE_V) == 0)
+                continue;
+            // this PTE points to a lower-level page table.
+            uint64 child2 = PTE2PA(pte2);
+            printf(" .. ..%d: pte %p pa %p\n", j,pte2, child2);
+            pagetable_t pt3 = (pagetable_t)child2;
+            for(int k =0;k<=511;k++){
+                pte_t pte3 = pt3[k];
+                if((pte3 & PTE_V) == 0)
+                    continue;
+                // this PTE points to a lower-level page table.
+                uint64 child3 = PTE2PA(pte3);
+                printf(" .. .. ..%d: pte %p pa %p\n", k,pte3, child3);
+            }
+        }
+    }
 }
