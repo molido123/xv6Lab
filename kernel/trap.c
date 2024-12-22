@@ -77,9 +77,15 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
-
+  if(which_dev == 2) {
+      p->pass_ticks++;
+      if(p->pass_ticks==p->alarm_ticks && p->alarm_ticks>0) {
+          p->trapframedup=p->trapframe+512;//trapframdup和trapframe共用一个page，这样就不需要分配了。
+          memmove(p->trapframedup,p->trapframe, sizeof(struct trapframe));
+          p->trapframe->epc=p->handler;
+      }
+      else yield();
+  }
   usertrapret();
 }
 
