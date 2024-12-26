@@ -33,6 +33,38 @@ trapinithart(void)
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
 //
+int cow_process(struct proc *p,uint64 page_fault_va){
+    if(page_fault_va>=MAXVA) {
+        return -1;
+    }// ***检查是否越界
+    if(page_fault_va>=p->sz){
+        printf("page fault va is over sz %p\n", page_fault_va);
+        return -1;
+    }
+    page_fault_va = PGROUNDDOWN(page_fault_va);
+    pte_t *pte = walk(p->pagetable, page_fault_va, 0);
+    if(pte == 0){
+        return -1;
+    }
+    uint64 pa;
+    pa = PTE2PA(*pte);
+    uint flags;
+    flags = PTE_FLAGS(*pte);
+    if((flags & PTE_COW)!=PTE_COW) return -1;
+    char *mem;
+    if((mem = kalloc()) == 0)
+            return -1;
+    memmove(mem, (char*)pa, PGSIZE);
+    flags &= ~PTE_COW;
+    flags |= PTE_W;
+    if(mappages(p->pagetable, page_fault_va, PGSIZE, (uint64)mem, flags) != 0){
+        kfree((void *)mem);
+        return -1;
+    }
+    kfree((void*)pa);
+    return 0;
+}
+
 void
 usertrap(void)
 {
@@ -67,7 +99,13 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  }else if(r_scause() == 15){//page fault
+      uint64 page_fault_va = r_stval();
+      if(cow_process(p,page_fault_va)==-1){
+          setkilled(p);
+      }
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     setkilled(p);

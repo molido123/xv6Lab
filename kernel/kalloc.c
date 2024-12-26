@@ -14,6 +14,11 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
+struct reference_count{
+    int count;
+    struct spinlock lock;
+} refc[PHYSTOP/PGSIZE];//global variable
+
 struct run {
   struct run *next;
 };
@@ -27,6 +32,11 @@ void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  // 初始化引用计数数组
+  for(int i = 0; i < PHYSTOP/PGSIZE; i++){
+      refc[i].count = 0;
+      initlock(&refc[i].lock, "refc");
+  }
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -50,7 +60,10 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
-
+  ref_dec((uint64)pa);
+  if(get_ref_count((uint64)pa) >0){
+      return;//如果reference_count大于0,直接返回
+  }
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
@@ -72,11 +85,36 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if(r){
     kmem.freelist = r->next;
+    acquire(&refc[pa_to_pagenum((uint64)r)].lock);
+    refc[pa_to_pagenum((uint64)r)].count=1;
+    release(&refc[pa_to_pagenum((uint64)r)].lock);
+  }
   release(&kmem.lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
 }
+
+int pa_to_pagenum(uint64 pa){
+    return PGROUNDDOWN((uint64)pa) / PGSIZE;
+}
+
+void ref_inc(uint64 pa){
+    acquire(&refc[pa_to_pagenum(pa)].lock);
+    refc[pa_to_pagenum(pa)].count++;
+    release(&refc[pa_to_pagenum(pa)].lock);
+}
+
+void ref_dec(uint64 pa){
+    acquire(&refc[pa_to_pagenum(pa)].lock);
+    refc[pa_to_pagenum(pa)].count--;
+    release(&refc[pa_to_pagenum(pa)].lock);
+}
+
+int get_ref_count(uint64 pa){
+    return refc[pa_to_pagenum(pa)].count;
+}
+
